@@ -92,11 +92,12 @@ proc create_root_design { parentCell } {
   set_property -dict $ps7prop_dict $processing_system7_0
 
   # Create instance: ps7_0_axi_periph, and set properties
-  set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 ps7_0_axi_periph ]
+  #set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 ps7_0_axi_periph ]
   # should be using this instead, when did this become prefered?
-  #set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0
+  set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 ps7_0_axi_periph ]
   set_property -dict [ list \
     CONFIG.NUM_MI {1} \
+    CONFIG.NUM_SI {1} \
   ] $ps7_0_axi_periph
 
   # Create instance: rst_ps7_0_100M, and set properties
