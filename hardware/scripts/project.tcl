@@ -82,8 +82,7 @@ proc create_root_design { parentCell } {
   # Create ports
   set clk [ create_bd_port -dir I -type clk -freq_hz 100000000 clk ]
 
-  # Create instance: myip_0, and set properties
-  #set myip_0 [ create_bd_cell -type ip -vlnv user.org:user:myip:1.0 myip_0 ]
+  # Create instance: AXI_master_and_slave_inst, and set properties
   set IP_NAME AXI_master_and_slave
   set myip_0 [ create_bd_cell -type module -reference ${IP_NAME} ${IP_NAME}_inst ]
 
@@ -94,9 +93,11 @@ proc create_root_design { parentCell } {
 
   # Create instance: ps7_0_axi_periph, and set properties
   set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 ps7_0_axi_periph ]
+  # should be using this instead, when did this become prefered?
+  #set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0
   set_property -dict [ list \
-   CONFIG.NUM_MI {1} \
- ] $ps7_0_axi_periph
+    CONFIG.NUM_MI {1} \
+  ] $ps7_0_axi_periph
 
   # Create instance: rst_ps7_0_100M, and set properties
   set rst_ps7_0_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_ps7_0_100M ]
@@ -116,9 +117,6 @@ proc create_root_design { parentCell } {
   # Create address segments
   assign_bd_address -offset 0x43C00000 -range 0x00010000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs ${IP_NAME}_inst/axi_interface/reg0] -force
 
-  # Restore current instance
-  current_bd_instance $oldCurInst
-
   create_bd_port -dir O -from 4 -to 1 -type data ja_p
   create_bd_port -dir O -from 4 -to 1 -type data ja_n
   create_bd_port -dir O -from 4 -to 1 -type data jb_p
@@ -132,6 +130,9 @@ proc create_root_design { parentCell } {
   connect_bd_net [get_bd_ports clk] [get_bd_pins ${IP_NAME}_inst/clk]
   validate_bd_design
   save_bd_design
+
+  # Restore current instance
+  current_bd_instance $oldCurInst
 }
 
 set DESIGN_NAME AXI_master_and_slave
@@ -139,7 +140,7 @@ set_param board.repoPaths ../boards
 create_project ${DESIGN_NAME} ${DESIGN_NAME} -part xc7z020clg400-1
 config_ip_cache -disable_cache
 get_boards {*di*}
-#set_property board_part digilentinc.com:arty-z7-20:part0:1.1 [current_project]
+set_property board_part digilentinc.com:arty-z7-20:part0:1.1 [current_project]
 import_files -fileset constrs_1 -norecurse ../source/constraints/Arty-Z7-20-Master.xdc
 set SOURCE AXI_master_and_slave
 import_files -fileset sources_1 -norecurse "../source/verilog/${SOURCE}.v ../source/verilog/${SOURCE}_core.v"
@@ -160,6 +161,80 @@ set_property source_mgmt_mode All [current_project]
 update_compile_order -fileset sources_1
 
 save_bd_design
+
+# Do a synthesis so that we can add an ila
+reset_run synth_1
+launch_runs synth_1 -jobs 4
+wait_on_run synth_1
+open_run synth_1 -name synth_1
+
+# create an ila and add a crap ton of signals to it
+# I think this can only be done on a synthesized design.
+# the alternative is to add the ila to the RTL and make connections there
+create_debug_core u_ila_0 ila
+set_property -dict [list \
+    C_DATA_DEPTH 1024 \
+    C_TRIGIN_EN false \
+    C_TRIGOUT_EN false \
+    C_ADV_TRIGGER false \
+    C_INPUT_PIPE_STAGES 0 \
+    C_EN_STRG_QUAL false \
+    ALL_PROBE_SAME_MU true \
+    ALL_PROBE_SAME_MU_CNT 1 \
+] [get_debug_cores u_ila_0]
+
+#connect up the ila clock to the AXI clock
+connect_debug_port u_ila_0/clk [get_nets [list AXI_master_and_slave_bd_i/processing_system7_0/FCLK_CLK0 ]]
+
+# add a crap ton of signals to the ila
+set probe_list {}
+set base_path "AXI_master_and_slave_bd_i/AXI_master_and_slave_inst/inst"
+set signal_list [list S0_axi_araddr S0_axi_arready S0_axi_arvalid S0_axi_awready S0_axi_awvalid S0_axi_rready S0_axi_rvalid S0_axi_wready S0_axi_wvalid S0_axi_wdata S0_axi_rdata]
+foreach signal $signal_list {
+	lappend probe_list "${base_path}/${signal}"
+}
+set base_path "AXI_master_and_slave_bd_i/AXI_master_and_slave_inst/inst/AXI_master_and_slave_core_inst/"
+set signal_list [list slv_reg0 slv_reg1 slv_reg2 slv_reg4]
+foreach signal $signal_list {
+	lappend probe_list "${base_path}/${signal}"
+}
+set ila u_ila_0
+set probe_num 0
+foreach net $probe_list {
+    puts "attempting to add to ${ila} at probe${probe_num} net: ${net} "
+    if {[llength [get_nets -quiet ${net}]] == 1} {
+        set width 1
+        set variable_list "${net}"
+    } elseif {[llength [get_nets -quiet ${net}\[0\]]] != 0} {
+        set width [get_property BUS_WIDTH [get_nets -quiet ${net}\[0\]]]
+        set variable_list ""
+        for {set bit_num 0} {$bit_num < $width} {incr bit_num} {
+            append variable_list "${net}\[$bit_num\] "
+        }
+#         puts "  adding $variable_list"
+    } else {
+        puts "$net not found, not adding to ila"
+        continue
+    }
+    if {$probe_num != 0} {
+        # This is fucking stupid, when the ila is created it has one probe port on it
+        # Which means you have to use that and then start creating each extra probe port
+        # What's the fucking purpose of that.  Oh and it also doesn't get deleted if
+        # you do delete_debug_port ila/probe0.  Whose bright idea was that?
+        create_debug_port ${ila} probe
+    }
+    set_property port_width $width [get_debug_ports ${ila}/probe${probe_num}]
+    set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports ${ila}/probe${probe_num}]
+    connect_debug_port ${ila}/probe${probe_num} [get_nets $variable_list]
+    set probe_num [expr $probe_num + 1]
+}
+
+# save and add the ila constraints
+file mkdir master_and_slave/master_and_slave.srcs/constrs_1/new
+close [ open master_and_slave/master_and_slave.srcs/constrs_1/new/my_new_xdc.xdc w ]
+add_files -fileset constrs_1 master_and_slave/master_and_slave.srcs/constrs_1/new/my_new_xdc.xdc
+set_property target_constrs_file master_and_slave/master_and_slave.srcs/constrs_1/new/my_new_xdc.xdc [current_fileset -constrset]
+save_constraints -force
 
 
 # default is to just generate the project but if you add -tclargs --generate_bit

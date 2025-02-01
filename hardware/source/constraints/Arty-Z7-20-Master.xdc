@@ -185,4 +185,4 @@ set_property -dict { PACKAGE_PIN V12   IOSTANDARD LVCMOS33 } [get_ports { jb_p[4
 #set_property PACKAGE_PIN U9 [get_ports {netic20_u9}]; #IO_L17P_T2_13
 
 # make the tool put the build timestamp in the USR_ACCESSE2 register
-set_property BITSTREAM.CONFIG.USR_ACCESS TIMESTAMP
+#set_property BITSTREAM.CONFIG.USR_ACCESS TIMESTAMP
