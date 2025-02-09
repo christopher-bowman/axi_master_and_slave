@@ -111,9 +111,9 @@ proc create_root_design { parentCell } {
 
   # Create port connections
   connect_bd_net -net clk_0_1 [get_bd_ports clk] [get_bd_pins /clk]
-  connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins ${IP_NAME}_inst/S0_axi_aclk] [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins ps7_0_axi_periph/ACLK] [get_bd_pins ps7_0_axi_periph/M00_ACLK] [get_bd_pins ps7_0_axi_periph/S00_ACLK] [get_bd_pins rst_ps7_0_100M/slowest_sync_clk]
+  connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins ${IP_NAME}_inst/S0_axi_aclk] [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins ps7_0_axi_periph/aclk] [get_bd_pins rst_ps7_0_100M/slowest_sync_clk]
   connect_bd_net -net processing_system7_0_FCLK_RESET0_N [get_bd_pins processing_system7_0/FCLK_RESET0_N] [get_bd_pins rst_ps7_0_100M/ext_reset_in]
-  connect_bd_net -net rst_ps7_0_100M_peripheral_aresetn [get_bd_pins ${IP_NAME}_inst/S0_axi_aresetn] [get_bd_pins ps7_0_axi_periph/ARESETN] [get_bd_pins ps7_0_axi_periph/M00_ARESETN] [get_bd_pins ps7_0_axi_periph/S00_ARESETN] [get_bd_pins rst_ps7_0_100M/peripheral_aresetn]
+  connect_bd_net -net rst_ps7_0_100M_peripheral_aresetn [get_bd_pins ${IP_NAME}_inst/S0_axi_aresetn] [get_bd_pins ps7_0_axi_periph/aresetn] [get_bd_pins rst_ps7_0_100M/peripheral_aresetn]
 
   # Create address segments
   assign_bd_address -offset 0x43C00000 -range 0x00010000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs ${IP_NAME}_inst/axi_interface/reg0] -force
@@ -140,11 +140,10 @@ set DESIGN_NAME AXI_master_and_slave
 set_param board.repoPaths ../boards
 create_project ${DESIGN_NAME} ${DESIGN_NAME} -part xc7z020clg400-1
 config_ip_cache -disable_cache
-get_boards {*di*}
 set_property board_part digilentinc.com:arty-z7-20:part0:1.1 [current_project]
 import_files -fileset constrs_1 -norecurse ../source/constraints/Arty-Z7-20-Master.xdc
-set SOURCE AXI_master_and_slave
-import_files -fileset sources_1 -norecurse "../source/verilog/${SOURCE}.v ../source/verilog/${SOURCE}_core.v"
+import_files -fileset sources_1 -norecurse "../source/verilog/AXI_master_and_slave.v ../source/verilog/AXI_slave.v ../source/verilog/AXI_master.v"
+update_compile_order -fileset sources_1
 
 set BD_NAME ${DESIGN_NAME}_bd
 create_bd_design "${BD_NAME}"
@@ -189,13 +188,15 @@ connect_debug_port u_ila_0/clk [get_nets [list AXI_master_and_slave_bd_i/process
 
 # add a crap ton of signals to the ila
 set probe_list {}
+# add a crap ton of signals to the ila
+set probe_list {}
 set base_path "AXI_master_and_slave_bd_i/AXI_master_and_slave_inst/inst"
 set signal_list [list S0_axi_araddr S0_axi_arready S0_axi_arvalid S0_axi_awready S0_axi_awvalid S0_axi_rready S0_axi_rvalid S0_axi_wready S0_axi_wvalid S0_axi_wdata S0_axi_rdata]
 foreach signal $signal_list {
 	lappend probe_list "${base_path}/${signal}"
 }
-set base_path "AXI_master_and_slave_bd_i/AXI_master_and_slave_inst/inst/AXI_master_and_slave_core_inst/"
-set signal_list [list slv_reg0 slv_reg1 slv_reg2 slv_reg4]
+set base_path "AXI_master_and_slave_bd_i/AXI_master_and_slave_inst/inst/AXI_slave_inst"
+set signal_list [list read_request data_available read_address value_read slv_reg0 slv_reg1 slv_reg2 slv_reg3]
 foreach signal $signal_list {
 	lappend probe_list "${base_path}/${signal}"
 }
@@ -236,7 +237,6 @@ close [ open master_and_slave/master_and_slave.srcs/constrs_1/new/my_new_xdc.xdc
 add_files -fileset constrs_1 master_and_slave/master_and_slave.srcs/constrs_1/new/my_new_xdc.xdc
 set_property target_constrs_file master_and_slave/master_and_slave.srcs/constrs_1/new/my_new_xdc.xdc [current_fileset -constrset]
 save_constraints -force
-
 
 # default is to just generate the project but if you add -tclargs --generate_bit
 # the lanch the implementation step al the way to bitstream generation
