@@ -8,7 +8,7 @@ fake:
 
 clean:
 	(cd documentation && make clean)
-	(cd hardware && make clean)
+	(cd hardware && gmake realclean)
 	(cd software && make clean)
 	
 .PHONY: fake clean

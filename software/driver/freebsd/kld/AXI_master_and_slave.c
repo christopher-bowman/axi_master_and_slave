@@ -29,14 +29,13 @@
  */
 
 /*
- * Simple driver for dual seven segment display with multiplex in hardware
+ * Driver for first step AXI bus reads of main memory
  *
  */
 
 /*
  * KLD axi_mas
- * Copyright (c) 2022 Christopher R. Bowman
- * All rghts reserved
+ * Copyright (c) 2024 Christopher R. Bowman
  */
 
 #include <sys/cdefs.h>
@@ -66,7 +65,7 @@ __FBSDID("$FreeBSD$");
 #define	AXI_MAS_UNLOCK(sc)		mtx_unlock(&(sc)->sc_mtx)
 #define AXI_MAS_LOCK_INIT(sc) \
 	mtx_init(&(sc)->sc_mtx, device_get_nameunit((sc)->dev),	\
-	    "axi2x7sd", MTX_DEF)
+	    "axi_mas", MTX_DEF)
 #define AXI_MAS_LOCK_DESTROY(_sc)	mtx_destroy(&_sc->sc_mtx);
 
 #define WR4(sc, off, val)	bus_write_4((sc)->mem_res, (off), (val))
@@ -74,29 +73,33 @@ __FBSDID("$FreeBSD$");
 
 /* Hardware driver registers */
 
-#define	AXI_MAS_SGN		0x0000		/* Signature register */
-#define	AXI_MAS_SR1		0x0004		/* Segment register 1 */
-#define	AXI_MAS_SR2		0x0008		/* Segment register 2 */
-#define	AXI_MAS_DUMMY	0x000c		/* unused register */
+#define	AXI_MAS_SGN			0x0000		/* Signature register                   */
+#define	AXI_MAS_RADD		0x0004		/* Address to read from                 */
+#define	AXI_MAS_RVAL		0x0008		/* Value read from memory               */
+#define	AXI_MAS_TRIG		0x000c		/* Trigger for read from memory			*/
 
 struct axi_mas_softc {
 	device_t	dev;
 	struct mtx	sc_mtx;
 	struct resource *mem_res;	/* register base address */
+	uint32_t read_word;			/* word in main memory to be read by AXI master */
 };
 
 static int
 axi_mas_proc0(SYSCTL_HANDLER_ARGS)
 {
 	int error;
-static	int32_t value0 = 1;
 	struct axi_mas_softc *sc;
 
 	sc = (struct axi_mas_softc *)arg1;
 
+	sc->read_word = 0xcafebabe;			// set memory to a known value
+	uint32_t value0 = 0;
+	value0 = (uint32_t)&sc->read_word;	// get address of known value
+
 	AXI_MAS_LOCK(sc);
 
-	value0 = RD4(sc, AXI_MAS_SR2);
+//	value0 = RD4(sc, AXI_MAS_RADD);
 
 	AXI_MAS_UNLOCK(sc);
 
@@ -104,7 +107,8 @@ static	int32_t value0 = 1;
 	if (error != 0 || req->newptr == NULL)
 		return (error);
 
-	WR4(sc, AXI_MAS_SR2, value0);
+	value0 = (uint32_t)&sc->read_word;	// get address of known value
+	WR4(sc, AXI_MAS_RADD, value0);		// write know value address to read address register
 
 	return (0);
 }
@@ -113,14 +117,14 @@ static int
 axi_mas_proc1(SYSCTL_HANDLER_ARGS)
 {
 	int error;
-static	int32_t value1 = 0x10;
+	uint32_t value1 = 0x10;
 	struct axi_mas_softc *sc;
 
 	sc = (struct axi_mas_softc *)arg1;
 
 	AXI_MAS_LOCK(sc);
 
-	value1 = RD4(sc, AXI_MAS_SR1);
+	value1 = RD4(sc, AXI_MAS_RVAL);	// read register storing value read from main memory by hardware
 
 	AXI_MAS_UNLOCK(sc);
 
@@ -128,7 +132,31 @@ static	int32_t value1 = 0x10;
 	if (error != 0 || req->newptr == NULL)
 		return (error);
 
-	WR4(sc, AXI_MAS_SR1, value1);
+	WR4(sc, AXI_MAS_RVAL, value1);
+
+	return (0);
+}
+
+static int
+axi_mas_proc2(SYSCTL_HANDLER_ARGS)
+{
+	int error;
+	uint32_t value1 = 0x10;
+	struct axi_mas_softc *sc;
+
+	sc = (struct axi_mas_softc *)arg1;
+
+	AXI_MAS_LOCK(sc);
+
+	value1 = RD4(sc, AXI_MAS_TRIG);	// read register storing value read from main memory by hardware
+
+	AXI_MAS_UNLOCK(sc);
+
+	error = sysctl_handle_int(oidp, &value1, sizeof(value1), req);
+	if (error != 0 || req->newptr == NULL)
+		return (error);
+
+	WR4(sc, AXI_MAS_TRIG, value1);
 
 	return (0);
 }
@@ -147,16 +175,18 @@ axi_mas_sysctl_init(struct axi_mas_softc *sc)
 	tree_node = device_get_sysctl_tree(sc->dev);
 	tree = SYSCTL_CHILDREN(tree_node);
 
-	SYSCTL_ADD_PROC(ctx, tree, OID_AUTO, "ones",
+	SYSCTL_ADD_PROC(ctx, tree, OID_AUTO, "read_address",
 	    CTLFLAG_RW | CTLTYPE_UINT, sc, 0,
-	    axi_mas_proc0, "IU", "ones position segments");
+	    axi_mas_proc0, "IU", "write the read address and initiate read");
 
-	SYSCTL_ADD_PROC(ctx, tree, OID_AUTO, "tens",
+	SYSCTL_ADD_PROC(ctx, tree, OID_AUTO, "value_read",
 	    CTLFLAG_RW | CTLTYPE_UINT, sc, 0,
-	    axi_mas_proc1, "IU", "tens position segments");
+	    axi_mas_proc1, "IU", "get the read value");
+	    
+	SYSCTL_ADD_PROC(ctx, tree, OID_AUTO, "trigger",
+	    CTLFLAG_RW | CTLTYPE_UINT, sc, 0,
+	    axi_mas_proc2, "IU", "Trigger the master interface to read from main memory");
 }
-
-
 
 static int
 axi_mas_probe(device_t dev)
