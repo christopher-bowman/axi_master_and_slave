@@ -94,12 +94,11 @@ axi_mas_proc0(SYSCTL_HANDLER_ARGS)
 	sc = (struct axi_mas_softc *)arg1;
 
 	sc->read_word = 0xcafebabe;			// set memory to a known value
-	uint32_t value0 = 0;
-	value0 = (uint32_t)&sc->read_word;	// get address of known value
+static uint32_t value0 = 0;
 
 	AXI_MAS_LOCK(sc);
 
-//	value0 = RD4(sc, AXI_MAS_RADD);
+	value0 = RD4(sc, AXI_MAS_RADD);
 
 	AXI_MAS_UNLOCK(sc);
 
@@ -117,7 +116,7 @@ static int
 axi_mas_proc1(SYSCTL_HANDLER_ARGS)
 {
 	int error;
-	uint32_t value1 = 0x10;
+static uint32_t value1 = 0x10;
 	struct axi_mas_softc *sc;
 
 	sc = (struct axi_mas_softc *)arg1;
@@ -141,22 +140,22 @@ static int
 axi_mas_proc2(SYSCTL_HANDLER_ARGS)
 {
 	int error;
-	uint32_t value1 = 0x10;
+static uint32_t value2 = 0x10;
 	struct axi_mas_softc *sc;
 
 	sc = (struct axi_mas_softc *)arg1;
 
 	AXI_MAS_LOCK(sc);
 
-	value1 = RD4(sc, AXI_MAS_TRIG);	// read register storing value read from main memory by hardware
+	value2 = RD4(sc, AXI_MAS_TRIG);	// read register storing value read from main memory by hardware
 
 	AXI_MAS_UNLOCK(sc);
 
-	error = sysctl_handle_int(oidp, &value1, sizeof(value1), req);
+	error = sysctl_handle_int(oidp, &value2, sizeof(value2), req);
 	if (error != 0 || req->newptr == NULL)
 		return (error);
 
-	WR4(sc, AXI_MAS_TRIG, value1);
+	WR4(sc, AXI_MAS_TRIG, value2);
 
 	return (0);
 }

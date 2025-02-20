@@ -1,10 +1,12 @@
 
 #
-# Copyright (C) 2010 Christopher R. Bowman.  All rights reserved
+# Copyright (C) 2025 Christopher R. Bowman.  All rights reserved
 # contact: <my initials>@ChrisBowman.com
 #
 # This make file builds the project documentation
 #
+
+.SUFFIXES: .tex .dvi .pdf .lot .toc .ps
 
 all: doc
 
@@ -27,14 +29,14 @@ doc: specification.pdf
 #	@echo "built .lot and .toc"
 #	latex $<
 
-%.dvi: %.tex			# override the built in
+.tex.dvi: # override the built in
 	latex $<
 	latex $<
 
-%.pdf: %.dvi
+.dvi.pdf:
 	dvipdf $<
 
-%.ps: %.dvi
+.dvi.ps:
 	dvips $<
 
 view: doc

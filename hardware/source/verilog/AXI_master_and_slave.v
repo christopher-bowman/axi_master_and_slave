@@ -94,7 +94,57 @@ module AXI_master_and_slave #
   (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 axi_interface RVALID" *)
     output wire                              S0_axi_rvalid,
   (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 axi_interface RREADY" *)
-    input  wire                              S0_axi_rready
+    input  wire                              S0_axi_rready,
+
+	// Ports of Axi Master Bus Interface M_AXI
+	input wire  m_axi_init_axi_txn,
+	output wire  m_axi_txn_done,
+	output wire  m_axi_error,
+	input wire  m_axi_aclk,
+	input wire  m_axi_aresetn,
+	output wire [C_M_AXI_ID_WIDTH-1 : 0] m_axi_awid,
+	output wire [C_M_AXI_ADDR_WIDTH-1 : 0] m_axi_awaddr,
+	output wire [7 : 0] m_axi_awlen,
+	output wire [2 : 0] m_axi_awsize,
+	output wire [1 : 0] m_axi_awburst,
+	output wire  m_axi_awlock,
+	output wire [3 : 0] m_axi_awcache,
+	output wire [2 : 0] m_axi_awprot,
+	output wire [3 : 0] m_axi_awqos,
+	output wire [C_M_AXI_AWUSER_WIDTH-1 : 0] m_axi_awuser,
+	output wire  m_axi_awvalid,
+	input wire  m_axi_awready,
+	output wire [C_M_AXI_DATA_WIDTH-1 : 0] m_axi_wdata,
+	output wire [C_M_AXI_DATA_WIDTH/8-1 : 0] m_axi_wstrb,
+	output wire  m_axi_wlast,
+	output wire [C_M_AXI_WUSER_WIDTH-1 : 0] m_axi_wuser,
+	output wire  m_axi_wvalid,
+	input wire  m_axi_wready,
+	input wire [C_M_AXI_ID_WIDTH-1 : 0] m_axi_bid,
+	input wire [1 : 0] m_axi_bresp,
+	input wire [C_M_AXI_BUSER_WIDTH-1 : 0] m_axi_buser,
+	input wire  m_axi_bvalid,
+	output wire  m_axi_bready,
+	output wire [C_M_AXI_ID_WIDTH-1 : 0] m_axi_arid,
+	output wire [C_M_AXI_ADDR_WIDTH-1 : 0] m_axi_araddr,
+	output wire [7 : 0] m_axi_arlen,
+	output wire [2 : 0] m_axi_arsize,
+	output wire [1 : 0] m_axi_arburst,
+	output wire  m_axi_arlock,
+	output wire [3 : 0] m_axi_arcache,
+	output wire [2 : 0] m_axi_arprot,
+	output wire [3 : 0] m_axi_arqos,
+	output wire [C_M_AXI_ARUSER_WIDTH-1 : 0] m_axi_aruser,
+	output wire  m_axi_arvalid,
+	input wire  m_axi_arready,
+	input wire [C_M_AXI_ID_WIDTH-1 : 0] m_axi_rid,
+	input wire [C_M_AXI_DATA_WIDTH-1 : 0] m_axi_rdata,
+	input wire [1 : 0] m_axi_rresp,
+	input wire  m_axi_rlast,
+	input wire [C_M_AXI_RUSER_WIDTH-1 : 0] m_axi_ruser,
+	input wire  m_axi_rvalid,
+	output wire  m_axi_rready
+
 );
 
 	wire read_request;
@@ -139,10 +189,8 @@ AXI_slave # (
     .S_AXI_RREADY(S0_axi_rready),
 	.read_request(read_request),
 	.read_address(read_address),
-//	.value_read(value_read),
-	.value_read('h0),
-//	.data_available(data_available)
-	.data_available(1'b0)
+ 	.value_read(value_read),
+	.data_available(data_available)
 );
 
 // Instantiation of Axi Bus Interface M_AXI
@@ -207,6 +255,5 @@ AXI_master # (
 	.value_read(value_read),
 	.data_available(data_available)
 );
-
 
 endmodule

@@ -84,7 +84,8 @@ proc create_root_design { parentCell } {
 
   # Create instance: AXI_master_and_slave_inst, and set properties
   set IP_NAME AXI_master_and_slave
-  set myip_0 [ create_bd_cell -type module -reference ${IP_NAME} ${IP_NAME}_inst ]
+  set IP_INST AXI_master_and_slave_inst
+  set myip_0 [ create_bd_cell -type module -reference ${IP_NAME} ${IP_INST} ]
 
   # Create instance: processing_system7_0, and set properties
   set processing_system7_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7_0 ]
@@ -95,40 +96,57 @@ proc create_root_design { parentCell } {
   #set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 ps7_0_axi_periph ]
   # should be using this instead, when did this become prefered?
   set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 ps7_0_axi_periph ]
-  set_property -dict [ list \
-    CONFIG.NUM_MI {1} \
-    CONFIG.NUM_SI {1} \
-  ] $ps7_0_axi_periph
+  set_property -dict [ list CONFIG.NUM_MI {1} CONFIG.NUM_SI {1} ] $ps7_0_axi_periph
 
   # Create instance: rst_ps7_0_100M, and set properties
   set rst_ps7_0_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_ps7_0_100M ]
 
-  # Create interface connections
+  # Create instance: axi_mem_intercon, and set properties
+  set axi_mem_intercon [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_mem_intercon ]
+  set_property -dict [ list CONFIG.NUM_MI {1} CONFIG.NUM_SI {1} ] $axi_mem_intercon
+
+# add vip for the master interface
+create_bd_cell -type ip -vlnv xilinx.com:ip:axi_vip:1.1 axi_master_vip_0
+connect_bd_intf_net [get_bd_intf_pins axi_master_vip_0/S_AXI] [get_bd_intf_pins ${IP_INST}/m_axi]
+connect_bd_intf_net [get_bd_intf_pins axi_master_vip_0/M_AXI] -boundary_type upper [get_bd_intf_pins axi_mem_intercon/S00_AXI]
+connect_bd_net [get_bd_pins axi_master_vip_0/aresetn] [get_bd_pins rst_ps7_0_100M/peripheral_aresetn]
+connect_bd_net [get_bd_pins axi_master_vip_0/aclk] [get_bd_pins processing_system7_0/FCLK_CLK0]
+
+# add vip for the slave interface
+create_bd_cell -type ip -vlnv xilinx.com:ip:axi_vip:1.1 axi_slave_vip_0
+connect_bd_intf_net -boundary_type upper [get_bd_intf_pins ps7_0_axi_periph/M00_AXI] [get_bd_intf_pins axi_slave_vip_0/S_AXI]
+connect_bd_intf_net [get_bd_intf_pins axi_slave_vip_0/M_AXI] [get_bd_intf_pins ${IP_INST}/axi_interface]
+connect_bd_net [get_bd_pins axi_slave_vip_0/aclk] [get_bd_pins processing_system7_0/FCLK_CLK0]
+connect_bd_net [get_bd_pins axi_slave_vip_0/aresetn] [get_bd_pins rst_ps7_0_100M/peripheral_aresetn]
+
+ # Create interface connections
   connect_bd_intf_net -intf_net processing_system7_0_DDR [get_bd_intf_ports DDR] [get_bd_intf_pins processing_system7_0/DDR]
   connect_bd_intf_net -intf_net processing_system7_0_FIXED_IO [get_bd_intf_ports FIXED_IO] [get_bd_intf_pins processing_system7_0/FIXED_IO]
   connect_bd_intf_net -intf_net processing_system7_0_M_AXI_GP0 [get_bd_intf_pins processing_system7_0/M_AXI_GP0] [get_bd_intf_pins ps7_0_axi_periph/S00_AXI]
-  connect_bd_intf_net -intf_net ps7_0_axi_periph_M00_AXI [get_bd_intf_pins ${IP_NAME}_inst/axi_interface] [get_bd_intf_pins ps7_0_axi_periph/M00_AXI]
+  connect_bd_intf_net -intf_net processing_system7_0_S_AXI_HP0 [get_bd_intf_pins processing_system7_0/S_AXI_HP0] [get_bd_intf_pins axi_mem_intercon/M00_AXI]
+#   connect_bd_intf_net -intf_net ps7_0_axi_periph_M00_AXI [get_bd_intf_pins ${IP_INST}/axi_interface] [get_bd_intf_pins ps7_0_axi_periph/M00_AXI]
+#   connect_bd_intf_net -intf_net axi_mem_intercon_S00_AXI [get_bd_intf_pins ${IP_INST}/m_axi] [get_bd_intf_pins axi_mem_intercon/S00_AXI]
 
   # Create port connections
   connect_bd_net -net clk_0_1 [get_bd_ports clk] [get_bd_pins /clk]
-  connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins ${IP_NAME}_inst/S0_axi_aclk] [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins ps7_0_axi_periph/aclk] [get_bd_pins rst_ps7_0_100M/slowest_sync_clk]
+  connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins ${IP_INST}/S0_axi_aclk] [get_bd_pins ${IP_INST}/m_axi_aclk] [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK] [get_bd_pins ps7_0_axi_periph/aclk] [get_bd_pins axi_mem_intercon/aclk] [get_bd_pins rst_ps7_0_100M/slowest_sync_clk]
   connect_bd_net -net processing_system7_0_FCLK_RESET0_N [get_bd_pins processing_system7_0/FCLK_RESET0_N] [get_bd_pins rst_ps7_0_100M/ext_reset_in]
-  connect_bd_net -net rst_ps7_0_100M_peripheral_aresetn [get_bd_pins ${IP_NAME}_inst/S0_axi_aresetn] [get_bd_pins ps7_0_axi_periph/aresetn] [get_bd_pins rst_ps7_0_100M/peripheral_aresetn]
+  connect_bd_net -net rst_ps7_0_100M_peripheral_aresetn [get_bd_pins ${IP_INST}/S0_axi_aresetn] [get_bd_pins ${IP_INST}/m_axi_aresetn] [get_bd_pins ps7_0_axi_periph/aresetn] [get_bd_pins axi_mem_intercon/aresetn] [get_bd_pins rst_ps7_0_100M/peripheral_aresetn]
 
-  # Create address segments
-  assign_bd_address -offset 0x43C00000 -range 0x00010000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs ${IP_NAME}_inst/axi_interface/reg0] -force
+ # Create address segments
+  assign_bd_address -offset 0x43C00000 -range 0x00010000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs ${IP_INST}/axi_interface/reg0] -force
 
   create_bd_port -dir O -from 4 -to 1 -type data ja_p
   create_bd_port -dir O -from 4 -to 1 -type data ja_n
   create_bd_port -dir O -from 4 -to 1 -type data jb_p
   create_bd_port -dir O -from 4 -to 1 -type data jb_n
   create_bd_port -dir O -from 3 -to 0 -type data led
-  connect_bd_net [get_bd_ports ja_p] [get_bd_pins ${IP_NAME}_inst/ja_p]
-  connect_bd_net [get_bd_ports ja_n] [get_bd_pins ${IP_NAME}_inst/ja_n]
-  connect_bd_net [get_bd_ports jb_p] [get_bd_pins ${IP_NAME}_inst/jb_p]
-  connect_bd_net [get_bd_ports jb_n] [get_bd_pins ${IP_NAME}_inst/jb_n]
-  connect_bd_net [get_bd_ports led] [get_bd_pins ${IP_NAME}_inst/led]
-  connect_bd_net [get_bd_ports clk] [get_bd_pins ${IP_NAME}_inst/clk]
+  connect_bd_net [get_bd_ports ja_p] [get_bd_pins ${IP_INST}/ja_p]
+  connect_bd_net [get_bd_ports ja_n] [get_bd_pins ${IP_INST}/ja_n]
+  connect_bd_net [get_bd_ports jb_p] [get_bd_pins ${IP_INST}/jb_p]
+  connect_bd_net [get_bd_ports jb_n] [get_bd_pins ${IP_INST}/jb_n]
+  connect_bd_net [get_bd_ports led] [get_bd_pins ${IP_INST}/led]
+  connect_bd_net [get_bd_ports clk] [get_bd_pins ${IP_INST}/clk]
   validate_bd_design
   save_bd_design
 
@@ -196,7 +214,7 @@ foreach signal $signal_list {
 	lappend probe_list "${base_path}/${signal}"
 }
 set base_path "AXI_master_and_slave_bd_i/AXI_master_and_slave_inst/inst/AXI_slave_inst"
-set signal_list [list read_request data_available read_address value_read slv_reg0 slv_reg1 slv_reg2 slv_reg3]
+set signal_list [list read_request data_available read_address value_read slv_reg0 slv_reg1 slv_reg2 slv_reg3 slv_reg_wren axi_wready S_AXI_WVALID axi_awready S_AXI_AWVALID]
 foreach signal $signal_list {
 	lappend probe_list "${base_path}/${signal}"
 }
@@ -254,3 +272,17 @@ if {$generate_bit==1} {
 start_gui
 break
 exit
+
+open_hw_manager
+connect_hw_server -allow_non_jtag
+open_hw_target
+current_hw_device [get_hw_devices xc7z020_1]
+refresh_hw_device [lindex [get_hw_devices xc7z020_1] 0]
+set_property PROBES.FILE {AXI_master_and_slave/AXI_master_and_slave.runs/impl_1/AXI_master_and_slave_bd_wrapper.ltx} [get_hw_devices xc7z020_1]
+set_property FULL_PROBES.FILE {/AXI_master_and_slave/AXI_master_and_slave.runs/impl_1/AXI_master_and_slave_bd_wrapper.ltx} [get_hw_devices xc7z020_1]
+set_property PROGRAM.FILE {AXI_master_and_slave/AXI_master_and_slave.runs/impl_1/AXI_master_and_slave_bd_wrapper.bit} [get_hw_devices xc7z020_1]
+program_hw_devices [get_hw_devices xc7z020_1]
+refresh_hw_device [lindex [get_hw_devices xc7z020_1] 0]
+display_hw_ila_data [ get_hw_ila_data hw_ila_data_1 -of_objects [get_hw_ilas -of_objects [get_hw_devices xc7z020_1] -filter {CELL_NAME=~"u_ila_0"}]]
+set_property TRIGGER_COMPARE_VALUE eq1'bR [get_hw_probes AXI_master_and_slave_bd_i/AXI_master_and_slave_inst/inst/S0_axi_wvalid -of_objects [get_hw_ilas -of_objects [get_hw_devices xc7z020_1] -filter {CELL_NAME=~"u_ila_0"}]]
+run_hw_ila [get_hw_ilas -of_objects [get_hw_devices xc7z020_1] -filter {CELL_NAME=~"u_ila_0"}]

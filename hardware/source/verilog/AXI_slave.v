@@ -136,13 +136,9 @@ localparam integer OPT_MEM_ADDR_BITS = 1;
 //-- Signals for user logic register space example
 //------------------------------------------------
 //-- Number of Slave Registers 4
-(* mark_debug = "true", keep = "true" *)
 reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg0;
-(* mark_debug = "true", keep = "true" *)
 reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg1;
-(* mark_debug = "true", keep = "true" *)
 reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg2;
-(* mark_debug = "true", keep = "true" *)
 reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg3;
 wire	 slv_reg_rden;
 wire	 slv_reg_wren;
@@ -259,55 +255,40 @@ begin
       slv_reg0 <= 32'hFEEDFACE;
       slv_reg1 <= 0;
       slv_reg3 <= 0;
-	  read_request <= 1'b0;
     end 
   else begin
     if (slv_reg_wren)
       begin
         case ( axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] )
           2'h0:
-			begin
-			  read_request <= 1'b0;
-			  for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
-                if ( S_AXI_WSTRB[byte_index] == 1 ) begin
-                  // Respective byte enables are asserted as per write strobes 
-                  // Slave register 0
-                  slv_reg0[(byte_index*8) +: 8] <= 32'hFEEDFACE; //S_AXI_WDATA[(byte_index*8) +: 8];
-                end  
-			end
+			for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
+				if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+				  // Respective byte enables are asserted as per write strobes 
+				  // Slave register 0
+				  slv_reg0[(byte_index*8) +: 8] <= 32'hFEEDFACE; //S_AXI_WDATA[(byte_index*8) +: 8];
+				end  
           2'h1:
- 			begin
-			  read_request <= 1'b0;
-			  for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
-                if ( S_AXI_WSTRB[byte_index] == 1 ) begin
-                  // Respective byte enables are asserted as per write strobes 
-                  // Slave register 1
-                  slv_reg1[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
-                end  
-			end
-          2'h2:
-//             for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
-//               if ( S_AXI_WSTRB[byte_index] == 1 ) begin
-//                 // Respective byte enables are asserted as per write strobes 
-//                 // Slave register 2
-//                 slv_reg2[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
-//               end  
-			begin
-			  read_request <= 1'b0;
-			end
+			for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
+				if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+				  // Respective byte enables are asserted as per write strobes 
+				  // Slave register 1
+				  slv_reg1[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+				end  
+//           2'h2:
+// 			for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
+// 			  if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+// 				// Respective byte enables are asserted as per write strobes 
+// 				// Slave register 2
+//  				slv_reg2[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+// 			  end  
           2'h3:
-			begin
-			  read_request <= 1'b1;
-			  slv_reg3 <= slv_reg3 + 'b1;
-			end
-//             for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
-//               if ( S_AXI_WSTRB[byte_index] == 1 ) begin
-//                 // Respective byte enables are asserted as per write strobes 
-//                 // Slave register 3
-//                 slv_reg3[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
-//               end  
+            for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
+              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+                // Respective byte enables are asserted as per write strobes 
+                // Slave register 3
+                slv_reg3[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+              end  
           default : begin
-					  read_request <= 1'b0;
                       slv_reg0 <= 32'hFEEDFACE;
                       slv_reg1 <= slv_reg1;
                       slv_reg3 <= slv_reg3;
@@ -316,6 +297,13 @@ begin
       end
   end
 end    
+
+always @( posedge S_AXI_ACLK )
+begin
+  if ( S_AXI_ARESETN == 1'b0 ) begin
+	  read_request <= 1'b0;
+  end else read_request <= slv_reg_wren && (axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 2'b11);
+end
 
 always @( posedge S_AXI_ACLK )
 begin
@@ -460,7 +448,8 @@ begin
     end
 end    
 
-assign read_address = slv_reg2;
+// assign read_address = slv_reg2;
+assign read_address = 'd42;
 
 // use C to select the flops to drive the SSD pins
 localparam ten_ms = 100000000 / 100;        // 10 ms in 100MHz clocks
