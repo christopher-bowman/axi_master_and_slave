@@ -21,10 +21,10 @@
 
 module AXI_master_and_slave #
 (
-    // Parameters of Axi Slave Bus Interface axi_S0
-    parameter integer C_S0_axi_DATA_WIDTH	= 32,
-    parameter integer C_S0_axi_ADDR_WIDTH	= 4,
-
+	// Parameters of Axi Slave Bus Interface axi_S0
+	parameter integer C_S0_axi_DATA_WIDTH	= 32,
+	parameter integer C_S0_axi_ADDR_WIDTH	= 4,
+	
 	// Parameters of Axi Master Bus Interface M_AXI
 	parameter C_M_AXI_TARGET_SLAVE_BASE_ADDR	= 32'h40000000,
 	parameter integer C_M_AXI_BURST_LEN	= 16,

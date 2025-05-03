@@ -19,10 +19,12 @@ help:
 
 doc: specification.pdf
 
-%.toc: %.tex
+specification.tex: board_design.ps
+
+.tex.toc:
 	latex $<
 
-%.lot: %.tex
+.tex.lot:
 	latex $<
 
 #%.dvi: %.lot %.toc %.tex

@@ -248,6 +248,8 @@ end
 // and the slave is ready to accept the write address and write data.
 assign slv_reg_wren = axi_wready && S_AXI_WVALID && axi_awready && S_AXI_AWVALID;
 
+reg [C_S_AXI_DATA_WIDTH-1:0]strobe_mask;
+
 always @( posedge S_AXI_ACLK )
 begin
   if ( S_AXI_ARESETN == 1'b0 )
@@ -259,14 +261,15 @@ begin
   else begin
     if (slv_reg_wren)
       begin
+		for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
+			if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+			  // Respective byte enables are asserted as per write strobes 
+			  // Slave register 1
+			  strobe_mask[(byte_index*8) +: 8] <= 8'b1111_1111;
+			end  
         case ( axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] )
           2'h0:
-			for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
-				if ( S_AXI_WSTRB[byte_index] == 1 ) begin
-				  // Respective byte enables are asserted as per write strobes 
-				  // Slave register 0
-				  slv_reg0[(byte_index*8) +: 8] <= 32'hFEEDFACE; //S_AXI_WDATA[(byte_index*8) +: 8];
-				end  
+			slv_reg0 <= 32'hFEEDFACE; 
           2'h1:
 			for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
 				if ( S_AXI_WSTRB[byte_index] == 1 ) begin
@@ -283,13 +286,13 @@ begin
 // 			  end  
           2'h3:
             for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
-              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
-                // Respective byte enables are asserted as per write strobes 
-                // Slave register 3
-                slv_reg3[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+			  if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+				// Respective byte enables are asserted as per write strobes 
+				// Slave register 3
+				slv_reg3[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
               end  
           default : begin
-                      slv_reg0 <= 32'hFEEDFACE;
+                      slv_reg0 <= slv_reg0;
                       slv_reg1 <= slv_reg1;
                       slv_reg3 <= slv_reg3;
                     end
@@ -411,7 +414,7 @@ begin
 end    
 
 wire [31:0] timestamp;
-USR_ACCESSE2 ua_inst (.DATA(timestamp));
+USR_ACCESSE2 ua_inst (.CFGCLK(), .DATA(timestamp), .DATAVALID());
 
 // Implement memory mapped register select and read logic generation
 // Slave register read enable is asserted when valid address is available
@@ -448,8 +451,7 @@ begin
     end
 end    
 
-// assign read_address = slv_reg2;
-assign read_address = 'd42;
+assign read_address = slv_reg1;
 
 // use C to select the flops to drive the SSD pins
 localparam ten_ms = 100000000 / 100;        // 10 ms in 100MHz clocks

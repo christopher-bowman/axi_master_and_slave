@@ -61,7 +61,10 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 
-#define AXI_MAS_LOCK(sc)		mtx_lock(&(sc)->sc_mtx)
+#include <vm/pmap.h>
+#include <arm/include/pmap.h>
+
+ #define AXI_MAS_LOCK(sc)		mtx_lock(&(sc)->sc_mtx)
 #define	AXI_MAS_UNLOCK(sc)		mtx_unlock(&(sc)->sc_mtx)
 #define AXI_MAS_LOCK_INIT(sc) \
 	mtx_init(&(sc)->sc_mtx, device_get_nameunit((sc)->dev),	\
@@ -106,7 +109,8 @@ static uint32_t value0 = 0;
 	if (error != 0 || req->newptr == NULL)
 		return (error);
 
-	value0 = (uint32_t)&sc->read_word;	// get address of known value
+	// get address of known value
+	value0 = (uint32_t)pmap_kextract((vm_offset_t)(&sc->read_word));
 	WR4(sc, AXI_MAS_RADD, value0);		// write know value address to read address register
 
 	return (0);

@@ -3,7 +3,7 @@
 #
 
 fake:
-	(cd hardware && make)
+	(cd hardware && gmake)
 	(cd software && make)
 
 clean:
