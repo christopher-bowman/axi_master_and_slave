@@ -1,6 +1,4 @@
-This project creates an AXI memory mapped interface
-for the Diglennt PmodeSSD.
-Included are RTL and scripts for impelemntion on the AXI interface for the
-Xilinx Zynq based Digalent Arty Z20 platform as well as software in the form
-of a driver and application for FreeBSD.
-
+This project creates an AXI master and slave for the Digilent Arty Z7-20.
+Included are RTL, scripts, and verification environment for implementation of both the
+master and slave.
+A software driver for FreeBSD is also included. 

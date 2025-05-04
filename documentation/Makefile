@@ -45,6 +45,6 @@ view: doc
 	evince specification.pdf
 
 clean: 
-	rm -rf specification.dvi specification.toc specification.lot specification.log specification.aux specification.pdf specification.ps specification.out
+	rm -rf specification.dvi specification.toc specification.lot specification.log specification.aux specification.pdf specification.ps specification.out specification.lof specification.t 
 
 .PHONY: doc
